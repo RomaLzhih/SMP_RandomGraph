@@ -19,7 +19,7 @@ string _filename =
     "n100_a2000_t10_p3/"
     "animal";
 
-const int NodesNum = 100;          // total nodes number
+const int NodesNum = 20;           // total nodes number
 const int ArcNum = 10;             // total arcs number
 const int pSize = 3;               // total partition number
 const int tSize = 3;               // terminal number in each partition
