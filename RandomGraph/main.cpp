@@ -18,17 +18,17 @@ typedef int NODE;
 const int MAXN = 1e6;
 string _filename =
     "D:/aMain/git/test/data/random_graph/general_random/group_1/"
-    "n100_a2000_t10_p3/"
+    "n2000_t50_p3_b50/"
     "animal";
 
-const int NodesNum = 10;           // total nodes number
-const int ArcNum = 10;             // total arcs number
+const int NodesNum = 2000;          // total nodes number
 const int pSize = 3;               // total partition number
-const int tSize = 3;               // terminal number in each partition
-const double subGnodeRatio = 0.7;  // V_k/V
-const double subGarcRatio = 0.8;   // arc/maximum
-const int GraphNum = 1;        // graph number generate
-const int TreeSpanNodesNum = 3;
+const int tSize = 50;              // terminal number in each partition
+double subGnodeRatio = 0.7;  // V_k/V
+double subGarcRatio = 0.1;   // arc/maximum
+const int GraphNum = 20;          // graph number generate
+const int TreeSpanNodesNum = 10;
+bool random_span = 1;
 
 /* G container */
 map<NODE, int> NodesValue;
@@ -38,9 +38,22 @@ set<pair<NODE, NODE>> ArcsPool;  // Arcs Pool
 
 /* subG container */
 int subGnodenum = 0, subGarcnum = 0;
-set<pair<NODE, NODE>> subGArcPool[pSize+1];  // subG arcs pool
-set<NODE> subGNodesPool[pSize+1];            // subG Nodes pool
-set<NODE> subGTerminalPool[pSize+1];         // subG terminal pool
+set<pair<NODE, NODE>> subGArcPool[pSize + 1];  // subG arcs pool
+set<NODE> subGNodesPool[pSize + 1];            // subG Nodes pool
+set<NODE> subGTerminalPool[pSize + 1];         // subG terminal pool
+
+void CLEAR() {
+	NodesValue.clear();
+	NodesPool.clear();
+	_NodesPool.clear();
+	ArcsPool.clear();
+	for (int i = 0; i < pSize + 1; i++) {
+		subGArcPool[i].clear();
+		subGNodesPool[i].clear();
+		subGTerminalPool[i].clear();
+	}
+	return;
+}
 
 int get_random_num() {
     srand((int)time(0));
@@ -96,16 +109,24 @@ void bfs(int root, int k) {
     memset(vis, 0, sizeof(vis));
     queue<NODE> q;
     q.push(root);
+	int span_num = 0;
     while (!q.empty()) {
         int u = q.front();
         q.pop();
         if (vis[u]) continue;
-        for (int i = 1; i <= TreeSpanNodesNum; i++) {
+
+		if (random_span) {
+			span_num = get_random_num(1, TreeSpanNodesNum);
+		} else {
+			span_num = TreeSpanNodesNum;
+		}
+
+        for (int i = 1; i <= span_num; i++) {
             int v = ReturnSetRandom(_NodesPool);
             int l = min(u, v), r = max(u, v);
             subGNodesPool[k].insert(v);
             subGArcPool[k].insert(make_pair(l, r));
-			if (subGNodesPool[k].size() > subGnodenum-1) return;
+            if (subGNodesPool[k].size() > subGnodenum - 1) return;
             q.push(v);
         }
         vis[u] = 1;
@@ -115,6 +136,20 @@ void bfs(int root, int k) {
 
 // Add arc to subgraph
 void AddArcToSubgraph(int k) {
+    // Select Terminal
+    while (subGTerminalPool[k].size() < tSize) {
+        int u = ReturnSetRandom_WithoutDelete(subGNodesPool[k]);
+        if (subGTerminalPool[k].find(u) != subGTerminalPool[k].end()) {
+            continue;
+        } else {
+            subGTerminalPool[k].insert(u);
+        }
+    }
+
+	if (subGArcPool[k].size() > subGarcnum) {
+		cout << "No extra arc added" << endl;
+	}
+
     while (subGArcPool[k].size() < subGarcnum) {
         int u = ReturnSetRandom_WithoutDelete(subGNodesPool[k]);
         int v = ReturnSetRandom_WithoutDelete(subGNodesPool[k]);
@@ -123,27 +158,19 @@ void AddArcToSubgraph(int k) {
         if (u == v ||
             subGArcPool[k].find(make_pair(u, v)) != subGArcPool[k].end()) {
             continue;
+        } else if (subGTerminalPool[k].count(u) &&
+                   subGTerminalPool[k].count(v)) {
+            continue;
         } else {
             subGArcPool[k].insert(make_pair(u, v));
         }
+		cout << subGArcPool[k].size() << endl;
     }
     return;
 }
 
 // merge subgraph
-void SelectTerminal_MergeSubG() {
-    // Select Terminal
-    for (int k = 1; k <= pSize; k++) {
-        while (subGTerminalPool[k].size() < tSize) {
-            int u = ReturnSetRandom_WithoutDelete(subGNodesPool[k]);
-            if (subGTerminalPool[k].find(u) != subGTerminalPool[k].end()) {
-                continue;
-            } else {
-                subGTerminalPool[k].insert(u);
-            }
-        }
-    }
-
+void MergeSubG() {
     // Merge
     for (int k = 1; k <= pSize; k++) {
         for (auto arc : subGArcPool[k]) {
@@ -190,6 +217,7 @@ void PrintGraph() {
                 cout << " " << i;
             }
         }
+        cout << endl;
     }
     return;
 }
@@ -233,17 +261,18 @@ void output(string filename) {
                 flow << " " << i;
             }
         }
+        flow << endl;
     }
     return;
 }
 
 int main() {
     srand((int)time(NULL));
-    for (int GraphId = 0; GraphId < GraphNum; GraphId++) {
-        string filename = _filename + _transform(GraphId) + ".txt";
+    for (int GraphId = 1; GraphId <= GraphNum; GraphId++) {
 
-        subGnodenum = (int)(NodesNum * subGnodeRatio);
-        subGarcnum = (int)(ArcNum * subGarcRatio);
+		CLEAR();
+
+        string filename = _filename + _transform(GraphId) + ".txt";
 
         // Assign Nodes value
         for (int i = 1; i <= NodesNum; i++) {
@@ -253,6 +282,9 @@ int main() {
 
         // Build Subgraph
         for (int k = 1; k <= pSize; k++) {
+			subGnodenum = (int)(NodesNum * get_random_num(0.3, 0.7));
+			subGarcnum = (int)(subGnodenum * (subGnodenum - 1) / 2 * subGarcRatio);
+			//cout << subGarcnum << endl;
             _NodesPool = NodesPool;
             NODE root = ReturnSetRandom(_NodesPool);
             bfs(root, k);
@@ -260,11 +292,12 @@ int main() {
         }
 
         // Merge
-        SelectTerminal_MergeSubG();
+        MergeSubG();
 
         // Print
-        PrintGraph();
+        // PrintGraph();
         output(filename);
+        cout << "graph " << GraphId << " finish" << endl;
     }
     cout << "hello world" << endl;
     return 0;
